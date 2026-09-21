@@ -2,11 +2,11 @@ theme: jekyll-theme-chirpy
 lang: en
 timezone: Europe/London
 
-title: The Scrapbook
+title: The market_learning_repo
 tagline: Lachlan Jack
 description: A note-taking book to best organise and demonstrate learnings.
 url: "https://lachlanmdjack.github.io"
-baseurl: "/scrapbook"
+baseurl: "/market_learning_repo"
 
 github:
   username: lachlanmdjack
