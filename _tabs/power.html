@@ -1,0 +1,558 @@
+---
+layout: page
+title: Power
+icon: fas fa-bolt
+order: 2
+---
+
+{% raw %}
+<style>
+  .gbp{
+    --gbp-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --gbp-epex:#C2522D;
+    --gbp-ssp:#4A3EA8;
+    --gbp-wind:#1E7A45;
+    --gbp-fcst:#78879A;
+    --gbp-grid:rgba(0,0,0,.09);
+    --gbp-tip:#FFFFFF;
+    --gbp-warn-bg:#FAF2E6;
+    --gbp-warn-ink:#75481A;
+  }
+  :root[data-bs-theme=dark] .gbp{
+    --gbp-epex:#F1885A;
+    --gbp-ssp:#A297FF;
+    --gbp-wind:#4FCB8B;
+    --gbp-fcst:#8C9AA8;
+    --gbp-grid:rgba(255,255,255,.10);
+    --gbp-tip:#1B1B1E;
+    --gbp-warn-bg:#241C12;
+    --gbp-warn-ink:#E3C089;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-bs-theme]) .gbp{
+      --gbp-epex:#F1885A;
+      --gbp-ssp:#A297FF;
+      --gbp-wind:#4FCB8B;
+      --gbp-fcst:#8C9AA8;
+      --gbp-grid:rgba(255,255,255,.10);
+      --gbp-tip:#1B1B1E;
+      --gbp-warn-bg:#241C12;
+      --gbp-warn-ink:#E3C089;
+    }
+  }
+
+  .gbp *{box-sizing:border-box}
+
+  .gbp .bar{
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+    margin-bottom:1.25rem;
+  }
+  .gbp .stamp{
+    font-family:var(--gbp-mono);font-size:.78rem;color:var(--text-muted-color);
+    display:flex;align-items:center;gap:8px;
+  }
+  .gbp .dot{width:7px;height:7px;border-radius:50%;background:var(--gbp-wind);flex:none}
+  .gbp .dot.stale{background:var(--gbp-epex)}
+  .gbp button.refresh{
+    font:inherit;font-size:.82rem;font-weight:500;cursor:pointer;
+    background:var(--card-bg);color:var(--text-color);
+    border:1px solid var(--btn-border-color, var(--main-border-color));
+    border-radius:6px;padding:.35rem .85rem;
+  }
+  .gbp button.refresh:hover{border-color:var(--link-color)}
+  .gbp button.refresh:focus-visible{outline:2px solid var(--link-color);outline-offset:2px}
+  .gbp button.refresh[disabled]{opacity:.55;cursor:progress}
+
+  .gbp .panels{display:flex;flex-direction:column;gap:1.25rem}
+
+  .gbp .panel{
+    background:var(--card-bg);
+    border:1px solid var(--main-border-color);
+    border-radius:10px;overflow:hidden;
+  }
+  .gbp .panel.quiet{background:transparent}
+  .gbp .panel-head{
+    display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between;
+    padding:.9rem 1.1rem .7rem;border-bottom:1px solid var(--main-border-color);
+  }
+  .gbp .panel.quiet .panel-head{border-bottom:0;padding-bottom:.2rem}
+  .gbp .panel-head h2{
+    margin:0;font-size:1.02rem;font-weight:600;letter-spacing:-.01em;color:var(--heading-color);
+  }
+  .gbp .panel-head .when{
+    font-family:var(--gbp-mono);font-size:.74rem;color:var(--text-muted-color);
+  }
+
+  .gbp .empty{
+    padding:.2rem 1.1rem 1.1rem;font-size:.86rem;color:var(--text-muted-color);line-height:1.6;margin:0;
+  }
+  .gbp .empty strong{color:var(--text-color);font-weight:600}
+
+  .gbp .stats{
+    display:flex;flex-wrap:wrap;
+    border-bottom:1px solid var(--main-border-color);
+    background:var(--card-header-bg, transparent);
+  }
+  .gbp .stat{
+    flex:1 1 190px;padding:.65rem 1.1rem;min-width:0;
+    border-right:1px solid var(--main-border-color);
+  }
+  .gbp .stat:last-child{border-right:0}
+  .gbp .stat .k{
+    display:flex;align-items:center;gap:7px;
+    font-family:var(--gbp-mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--text-muted-color);margin-bottom:2px;
+  }
+  .gbp .swatch{width:12px;height:3px;border-radius:2px;flex:none}
+  .gbp .stat .v{
+    font-family:var(--gbp-mono);font-size:.85rem;font-weight:500;
+    font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    color:var(--text-color);
+  }
+  .gbp .stat .v .sep{color:var(--text-muted-color);padding:0 3px}
+
+  .gbp .chart-wrap{position:relative;height:290px;padding:.8rem .5rem .3rem}
+  @media (min-width:768px){.gbp .chart-wrap{height:320px}}
+  .gbp .chart-wrap.tall{height:330px}
+  @media (min-width:768px){.gbp .chart-wrap.tall{height:390px}}
+
+  .gbp .note{
+    margin:0;padding:.6rem 1.1rem;font-size:.78rem;line-height:1.45;
+    color:var(--gbp-warn-ink);background:var(--gbp-warn-bg);
+    border-top:1px solid var(--main-border-color);
+  }
+  .gbp .note code,.gbp .empty code,.gbp .src code{font-family:var(--gbp-mono);font-size:.72rem}
+
+  .gbp .src{
+    margin-top:1.6rem;padding-top:.9rem;border-top:1px solid var(--main-border-color);
+    font-size:.78rem;color:var(--text-muted-color);line-height:1.7;
+  }
+  .gbp .src b{color:var(--text-color);font-weight:600}
+  .gbp .skel{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--gbp-mono);font-size:.75rem;color:var(--text-muted-color);
+  }
+</style>
+
+<div class="gbp">
+  <div class="bar">
+    <div class="stamp"><span class="dot" id="gbp-pulse"></span><span id="gbp-stamp">loading&hellip;</span></div>
+    <button class="refresh" id="gbp-refresh" type="button">Refresh</button>
+  </div>
+
+  <div class="panels">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Yesterday &mdash; imbalance &amp; market index</h2>
+        <span class="when" id="when-y"></span>
+      </div>
+      <div class="stats" id="stats-y"></div>
+      <div class="chart-wrap"><canvas id="c-y"></canvas><div class="skel" id="sk-y">fetching&hellip;</div></div>
+      <p class="note" id="note-y" hidden></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Today &mdash; imbalance &amp; market index</h2>
+        <span class="when" id="when-t"></span>
+      </div>
+      <div class="stats" id="stats-t"></div>
+      <div class="chart-wrap"><canvas id="c-t"></canvas><div class="skel" id="sk-t">fetching&hellip;</div></div>
+      <p class="note" id="note-t" hidden></p>
+    </section>
+
+    <section class="panel quiet">
+      <div class="panel-head">
+        <h2>Tomorrow &mdash; day-ahead</h2>
+        <span class="when" id="when-m"></span>
+      </div>
+      <p class="empty">
+        <strong>No day-ahead price here.</strong>
+        The EPEX figure on this page is Elexon&rsquo;s market index <code>MID</code>, published one
+        settlement period at a time, so it never exists for tomorrow. N2EX day-ahead lives on Nord
+        Pool&rsquo;s API, which sends no CORS headers, so a static site can&rsquo;t read it from the
+        browser &mdash; that needs a server-side fetch, such as a scheduled Action writing a JSON file
+        into the repo. Tomorrow&rsquo;s <em>wind</em> forecast is below and is live.
+      </p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Wind &mdash; metered output vs forecast</h2>
+        <span class="when" id="when-w"></span>
+      </div>
+      <div class="stats" id="stats-w"></div>
+      <div class="chart-wrap tall"><canvas id="c-w"></canvas><div class="skel" id="sk-w">fetching&hellip;</div></div>
+      <p class="note" id="note-w" hidden></p>
+    </section>
+  </div>
+
+  <p class="src">
+    <b>What&rsquo;s plotted.</b>
+    SSP is Elexon <code>DISEBSP</code> system sell price &mdash; later settlement runs revise it.
+    EPEX is the Elexon market index <code>MID</code> from APX/EPEX SPOT UK: a volume-weighted
+    within-day index published per settlement period, so it runs up to the current period and no
+    further. Elexon also carries an N2EX market index, but Nord Pool has been submitting zeros to it,
+    so it is deliberately not plotted.
+    Wind forecast is Elexon <code>WINDFOR</code> (unconstrained, BM-registered wind, hourly); metered
+    output is <code>AGWS</code> (onshore + offshore, half-hourly, roughly 2&ndash;3 hours behind real
+    time). Forecast sits above output on days with heavy curtailment.
+    Everything is fetched live from the Elexon Insights API in your browser on each load &mdash;
+    no key, no cache, nothing stored.
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var ROOT = document.querySelector(".gbp");
+  if(!ROOT || typeof Chart === "undefined") return;
+
+  var API = "https://data.elexon.co.uk/bmrs/api/v1";
+  var HH = 1800000;
+  var TZ = "Europe/London";
+
+  /* ---------- London time helpers ---------- */
+  var fYMD   = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
+  var fHM    = new Intl.DateTimeFormat("en-GB", {timeZone:TZ, hour:"2-digit", minute:"2-digit", hour12:false});
+  var fDay   = new Intl.DateTimeFormat("en-GB", {timeZone:TZ, weekday:"short", day:"numeric", month:"short"});
+  var fClock = new Intl.DateTimeFormat("en-GB", {timeZone:TZ, hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false});
+  var fParts = new Intl.DateTimeFormat("en-GB", {timeZone:TZ, hour12:false, year:"numeric", month:"2-digit",
+                                                 day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"});
+
+  function ymd(ms){ return fYMD.format(new Date(ms)); }
+  function hm(ms){ return fHM.format(new Date(ms)); }
+  function dayName(ms){ return fDay.format(new Date(ms)).replace(/,/g, ""); }
+
+  function offsetMs(ms){
+    var p = {}, arr = fParts.formatToParts(new Date(ms)), i;
+    for(i = 0; i < arr.length; i++){ p[arr[i].type] = arr[i].value; }
+    return Date.UTC(+p.year, +p.month - 1, +p.day, (+p.hour) % 24, +p.minute, +p.second) - ms;
+  }
+  function midnight(dateStr){
+    var base = Date.parse(dateStr + "T00:00:00Z");
+    return base - offsetMs(base - offsetMs(base));
+  }
+  function shiftYMD(dateStr, days){
+    return ymd(Date.parse(dateStr + "T12:00:00Z") + days * 86400000);
+  }
+  function slotsFor(dateStr){
+    var s = midnight(dateStr), e = midnight(shiftYMD(dateStr, 1)), out = [], t;
+    for(t = s; t < e; t += HH){ out.push(t); }
+    return out;
+  }
+  function iso(ms){ return new Date(ms).toISOString().slice(0, 19) + "Z"; }
+
+  /* ---------- fetch ---------- */
+  function getJSON(url){
+    return fetch(url, {headers:{Accept:"application/json"}}).then(function(r){
+      if(r.status === 204) return null;
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r.text().then(function(t){ return t ? JSON.parse(t) : null; });
+    });
+  }
+  function rowsOf(j){
+    if(!j) return [];
+    if(Array.isArray(j)) return j;
+    if(Array.isArray(j.data)) return j.data;
+    return [];
+  }
+  function soft(p){
+    return p.then(function(v){ return {ok:true, value:v}; },
+                  function(e){ return {ok:false, error:e}; });
+  }
+
+  /* ---------- series (Map: slot start ms -> value) ---------- */
+  function epexFor(dateStr){
+    var s = midnight(dateStr), e = midnight(shiftYMD(dateStr, 1));
+    return getJSON(API + "/balancing/pricing/market-index?from=" + iso(s) + "&to=" + iso(e - HH) +
+                   "&dataProviders=APXMIDP&format=json").then(function(j){
+      var m = new Map();
+      rowsOf(j).forEach(function(r){
+        if(r.dataProvider === "APXMIDP" && r.price !== null && r.price !== undefined){
+          m.set(Date.parse(r.startTime), r.price);
+        }
+      });
+      return m;
+    });
+  }
+
+  function sspFor(dateStr){
+    return getJSON(API + "/balancing/settlement/system-prices/" + dateStr + "?format=json").then(function(j){
+      var m = new Map();
+      rowsOf(j).forEach(function(r){
+        if(r.systemSellPrice !== null && r.systemSellPrice !== undefined){
+          m.set(Date.parse(r.startTime), r.systemSellPrice);
+        }
+      });
+      return m;
+    });
+  }
+
+  function windForecast(fromMs){
+    var latest  = getJSON(API + "/forecast/generation/wind?format=json");
+    var earlier = getJSON(API + "/datasets/WINDFOR?publishDateTimeFrom=" + iso(fromMs) +
+                          "&publishDateTimeTo=" + iso(fromMs + 3600000) + "&format=json");
+    return Promise.all([soft(earlier), soft(latest)]).then(function(res){
+      if(!res[0].ok && !res[1].ok){ throw (res[1].error || res[0].error); }
+      var m = new Map();
+      res.forEach(function(r){
+        if(!r.ok) return;
+        rowsOf(r.value).forEach(function(row){
+          if(row.generation === null || row.generation === undefined) return;
+          var st = Date.parse(row.startTime);
+          m.set(st, row.generation);
+          m.set(st + HH, row.generation);
+        });
+      });
+      return m;
+    });
+  }
+
+  function windActual(fromMs, toMs){
+    return getJSON(API + "/generation/actual/per-type/wind-and-solar?from=" + iso(fromMs) +
+                   "&to=" + iso(toMs) + "&format=json").then(function(j){
+      var m = new Map();
+      rowsOf(j).forEach(function(r){
+        if(r.psrType !== "Wind Onshore" && r.psrType !== "Wind Offshore") return;
+        var t = Date.parse(r.startTime);
+        m.set(t, (m.get(t) || 0) + (r.quantity || 0));
+      });
+      return m;
+    });
+  }
+
+  /* ---------- rendering ---------- */
+  function cssVar(name){ return getComputedStyle(ROOT).getPropertyValue(name).trim(); }
+  function byId(id){ return document.getElementById(id); }
+
+  var money = new Intl.NumberFormat("en-GB", {minimumFractionDigits:2, maximumFractionDigits:2});
+  var mwFmt = new Intl.NumberFormat("en-GB", {maximumFractionDigits:0});
+
+  function summarise(values, fmt, unit){
+    var v = values.filter(function(x){ return x !== null && isFinite(x); });
+    if(!v.length) return "&mdash;";
+    var min = Math.min.apply(null, v), max = Math.max.apply(null, v);
+    var avg = v.reduce(function(a, b){ return a + b; }, 0) / v.length;
+    return unit + fmt.format(avg) +
+           '<span class="sep">/</span>' + unit + fmt.format(min) +
+           '<span class="sep">/</span>' + unit + fmt.format(max);
+  }
+
+  function drawStats(el, defs){
+    el.innerHTML = defs.map(function(d){
+      return '<div class="stat"><div class="k"><span class="swatch" style="background:' + d.colour +
+             '"></span>' + d.label + '</div><div class="v">' + d.text + "</div></div>";
+    }).join("");
+  }
+
+  var charts = {};
+  function draw(canvasId, labels, datasets, unit, tickEvery, tipTitle){
+    if(charts[canvasId]){ charts[canvasId].destroy(); }
+    var ink   = cssVar("--text-color") || "#333";
+    var muted = cssVar("--text-muted-color") || "#888";
+    var line  = cssVar("--main-border-color") || "#ccc";
+    var grid  = cssVar("--gbp-grid");
+    var mono  = cssVar("--gbp-mono");
+
+    charts[canvasId] = new Chart(byId(canvasId), {
+      type: "line",
+      data: {labels: labels, datasets: datasets},
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: {mode:"index", intersect:false},
+        layout: {padding:{top:4, right:8}},
+        plugins: {
+          legend: {
+            labels: {color: muted, boxWidth: 16, boxHeight: 3, usePointStyle: false,
+                     font: {family: mono, size: 11}}
+          },
+          tooltip: {
+            backgroundColor: cssVar("--gbp-tip"),
+            titleColor: ink, bodyColor: ink, borderColor: line, borderWidth: 1,
+            padding: 10, boxWidth: 12, boxHeight: 3,
+            titleFont: {family: mono, size: 11},
+            bodyFont: {family: mono, size: 12},
+            callbacks: {
+              title: function(items){ return tipTitle(items[0].dataIndex); },
+              label: function(ctx){
+                var v = ctx.parsed.y;
+                if(v === null || v === undefined) return null;
+                return ctx.dataset.label + "  " +
+                       (unit === "£/MWh" ? "£" + money.format(v) : mwFmt.format(v) + " MW");
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {color: grid, drawTicks: false},
+            border: {color: line},
+            ticks: {
+              color: muted, autoSkip: false, maxRotation: 0, padding: 6,
+              font: {family: mono, size: 10},
+              callback: function(val, i){ return i % tickEvery === 0 ? this.getLabelForValue(val) : ""; }
+            }
+          },
+          y: {
+            grid: {color: grid, drawTicks: false},
+            border: {display: false},
+            title: {display: true, text: unit, color: muted, font: {family: mono, size: 10}},
+            ticks: {color: muted, padding: 8, font: {family: mono, size: 10}}
+          }
+        }
+      }
+    });
+  }
+
+  function lineSpec(label, colour, data, opts){
+    opts = opts || {};
+    return {
+      label: label, data: data,
+      borderColor: colour, backgroundColor: colour,
+      borderWidth: opts.width || 2,
+      borderDash: opts.dash || [],
+      pointRadius: 0, pointHoverRadius: 3,
+      tension: 0,
+      stepped: opts.stepped ? "before" : false,
+      spanGaps: false, fill: false
+    };
+  }
+
+  function note(id, html){
+    var el = byId(id);
+    if(!html){ el.hidden = true; return; }
+    el.innerHTML = html;
+    el.hidden = false;
+  }
+  function hideSkel(id){ var el = byId(id); if(el){ el.remove(); } }
+
+  function renderDay(cfg, maps){
+    var slots = slotsFor(cfg.date);
+    var labels = slots.map(hm);
+    var missing = [], datasets = [], stats = [];
+
+    cfg.series.forEach(function(s){
+      var r = maps[s.key];
+      if(!r.ok){ missing.push(s.label + " (" + r.error.message + ")"); return; }
+      var data = slots.map(function(t){
+        var v = r.value.get(t);
+        return v === undefined ? null : v;
+      });
+      if(!data.some(function(v){ return v !== null; })){ missing.push(s.label); return; }
+      datasets.push(lineSpec(s.label, cssVar(s.varName), data, {}));
+      stats.push({label: s.label + " avg/min/max", colour: cssVar(s.varName),
+                  text: summarise(data, money, "£")});
+    });
+
+    byId(cfg.when).textContent = dayName(slots[0]) + " · " + slots.length + " settlement periods";
+    drawStats(byId(cfg.stats),
+              stats.length ? stats : [{label:"no data yet", colour:"transparent", text:"&mdash;"}]);
+    hideSkel(cfg.skel);
+    draw(cfg.canvas, labels, datasets, "£/MWh", 4, function(i){
+      return dayName(slots[i]) + " " + labels[i] + "  ·  SP" + (i + 1);
+    });
+    return missing;
+  }
+
+  /* ---------- main ---------- */
+  var refreshBtn = byId("gbp-refresh");
+
+  function load(){
+    refreshBtn.disabled = true;
+    byId("gbp-pulse").classList.remove("stale");
+
+    var today = ymd(Date.now());
+    var yest  = shiftYMD(today, -1);
+    var tom   = shiftYMD(today, 1);
+    var windFrom = midnight(yest);
+
+    byId("when-m").textContent = dayName(midnight(tom));
+
+    Promise.all([
+      soft(sspFor(yest)), soft(epexFor(yest)),
+      soft(sspFor(today)), soft(epexFor(today)),
+      soft(windForecast(windFrom)), soft(windActual(windFrom, Date.now()))
+    ]).then(function(r){
+
+      var missY = renderDay({
+        date: yest, when:"when-y", stats:"stats-y", skel:"sk-y", canvas:"c-y",
+        series: [
+          {key:"ssp",  label:"SSP",  varName:"--gbp-ssp"},
+          {key:"epex", label:"EPEX", varName:"--gbp-epex"}
+        ]
+      }, {ssp:r[0], epex:r[1]});
+      note("note-y", missY.length ? "No data returned for: " + missY.join(", ") + "." : "");
+
+      var missT = renderDay({
+        date: today, when:"when-t", stats:"stats-t", skel:"sk-t", canvas:"c-t",
+        series: [
+          {key:"ssp",  label:"SSP",  varName:"--gbp-ssp"},
+          {key:"epex", label:"EPEX", varName:"--gbp-epex"}
+        ]
+      }, {ssp:r[2], epex:r[3]});
+      note("note-t", "Both series publish period by period, so today&rsquo;s lines stop at the " +
+                     "current settlement period rather than covering the whole day." +
+                     (missT.length ? " No data for: " + missT.join(", ") + "." : ""));
+
+      var wslots = [];
+      [yest, today, tom].forEach(function(d){ wslots = wslots.concat(slotsFor(d)); });
+      var wlabels = wslots.map(function(t){
+        var h = hm(t);
+        return (h === "00:00" || h === "12:00") ? dayName(t) : h;
+      });
+      var wds = [], wstats = [], missW = [];
+
+      if(r[5].ok){
+        var act = wslots.map(function(t){ var v = r[5].value.get(t); return v === undefined ? null : v; });
+        if(act.some(function(v){ return v !== null; })){
+          wds.push(lineSpec("Metered output", cssVar("--gbp-wind"), act, {width:2.2}));
+          wstats.push({label:"Metered output MW avg/min/max", colour:cssVar("--gbp-wind"),
+                       text:summarise(act, mwFmt, "")});
+        } else { missW.push("metered output"); }
+      } else { missW.push("metered output (" + r[5].error.message + ")"); }
+
+      if(r[4].ok){
+        var fc = wslots.map(function(t){ var v = r[4].value.get(t); return v === undefined ? null : v; });
+        if(fc.some(function(v){ return v !== null; })){
+          wds.push(lineSpec("Forecast (WINDFOR)", cssVar("--gbp-fcst"), fc,
+                            {width:2, dash:[5,4], stepped:true}));
+          wstats.push({label:"Forecast MW avg/min/max", colour:cssVar("--gbp-fcst"),
+                       text:summarise(fc, mwFmt, "")});
+        } else { missW.push("forecast"); }
+      } else { missW.push("forecast (" + r[4].error.message + ")"); }
+
+      byId("when-w").textContent = dayName(wslots[0]) + " → " + dayName(wslots[wslots.length - 1]);
+      drawStats(byId("stats-w"),
+                wstats.length ? wstats : [{label:"no data yet", colour:"transparent", text:"&mdash;"}]);
+      hideSkel("sk-w");
+      draw("c-w", wlabels, wds, "MW", 12, function(i){
+        return dayName(wslots[i]) + " " + hm(wslots[i]);
+      });
+      note("note-w", missW.length ? "No data returned for: " + missW.join(", ") + "." : "");
+
+      byId("gbp-stamp").textContent = "updated " + fClock.format(new Date()) + " London";
+      refreshBtn.disabled = false;
+    })["catch"](function(e){
+      byId("gbp-pulse").classList.add("stale");
+      byId("gbp-stamp").textContent = "load failed — " + e.message;
+      refreshBtn.disabled = false;
+    });
+  }
+
+  refreshBtn.addEventListener("click", load);
+  load();
+  setInterval(load, 5 * 60 * 1000);
+
+  /* follow Chirpy's light/dark toggle and the OS setting */
+  var mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if(mq.addEventListener){ mq.addEventListener("change", load); }
+  new MutationObserver(load).observe(document.documentElement,
+                                     {attributes:true, attributeFilter:["data-bs-theme"]});
+})();
+</script>
+{% endraw %}
